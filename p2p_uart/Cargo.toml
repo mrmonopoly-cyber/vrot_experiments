@@ -1,0 +1,14 @@
+[package]
+name = "p2p_uart_send"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+
+[dependencies]
+vrot_pe_lib = {path = "/home/mr_monopoly/Alberto/programmazione/Rust/vrot/vrot_pe_lib"}
+common_libs = {path = "/home/mr_monopoly/Alberto/programmazione/Rust/vrot/workspaces/common_libs"}
+libc = "0.2.191"
+
