@@ -1,0 +1,11 @@
+[package]
+name = "p2p_bus"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+libc = "0.2.191"
+vrot_bus_lib = {path = "../vrot/vrot_bus_lib"}

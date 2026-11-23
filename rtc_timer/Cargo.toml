@@ -1,0 +1,12 @@
+[package]
+name = "rtc_timer"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+vrot_pe_lib = {path = "../vrot/vrot_pe_lib"}
+common_libs = {path = "../vrot/workspaces/common_libs"}
+libc = "0.2.191"

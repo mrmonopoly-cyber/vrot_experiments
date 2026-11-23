@@ -1,1 +1,6 @@
 /target
+*.so
+*.ait
+*.aot
+*.log
+vrot

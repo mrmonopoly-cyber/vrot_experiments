@@ -2,7 +2,6 @@ use ::core::ptr;
 
 use ::std::ffi;
 use ::std::thread;
-use ::std::sync;
 
 #[repr(C)]
 pub struct UartObj<'a>
@@ -22,7 +21,6 @@ pub unsafe extern "C" fn pe_init(
     let vrot_pe = unsafe{ vrot.as_mut().unwrap() };
 
     unsafe {
-        vrot_pe_lib::VrotPE::pe_vrot_set_trap(vrot, _trigger_write, 0);
         ptr::write(p_self, UartObj { vrot_pe });
     }
 
@@ -41,9 +39,9 @@ pub unsafe extern "C" fn pe_main(p_self: *mut UartObj)
     let bus_interface_read = vbus.read;
     let bus_interface_data_raw = vbus.data as usize;
 
-    let max_msg_size = 1024;
+    let msg_size = ::core::mem::size_of::<ffi::c_int>();
 
-    //read
+    //read from the bus
     let rx = thread::spawn(move ||{
         let vrot_ptr = vrot_ptr_raw as _;
 
@@ -52,65 +50,70 @@ pub unsafe extern "C" fn pe_main(p_self: *mut UartObj)
                 vrot_ptr,
                 vrot_pe_lib::VarType::Write,
                 0,
-            )
+            ) as *mut ffi::c_int
         };
         assert!(!rx_ptr.is_null());
 
-        let rx_read_ptr = unsafe {
-            vrot_pe_lib::VrotPE::pe_vrot_get_extra_var(
-                vrot_ptr,
-                vrot_pe_lib::VarType::Write,
-                1,
-            ) as *mut u32
-        };
-        assert!(!rx_read_ptr.is_null());
-
         let ctx = bus_interface_data_raw as *const ();
 
-        unsafe
+        loop
         {
-            let read = (bus_interface_read)(ctx, rx_ptr, max_msg_size); //blocking
-            *rx_read_ptr = read as u32;
-            vrot_pe_lib::VrotPE::pe_vrot_trigger_hw_interrupt(
-                vrot_ptr,
-                0);
+            let mut msg : ffi::c_int = 0;
+            unsafe
+            {
+                (bus_interface_read)(ctx, &mut msg as *mut ffi::c_int as _, msg_size); //blocking
+                println!("p2p uart read: {}", msg);
+                *rx_ptr = msg;
+                vrot_pe_lib::VrotPE::pe_vrot_trigger_hw_interrupt(
+                    vrot_ptr,
+                    0);
+            }
         }
     });
 
-    //write
+    //write into the bus
     let tx = thread::spawn(move || {
         let tx_ptr = unsafe {
             vrot_pe_lib::VrotPE::pe_vrot_get_extra_var(
                 vrot_ptr_raw as _,
                 vrot_pe_lib::VarType::Read,
-                0)
+                0) as *mut ffi::c_int
         };
         assert!(!tx_ptr.is_null());
 
-        let tx_to_send = unsafe {
+        let tx_send_trigger = unsafe {
             vrot_pe_lib::VrotPE::pe_vrot_get_extra_var(
                 vrot_ptr_raw as _,
                 vrot_pe_lib::VarType::Read,
-                1,
-            ) as *mut u32
+                1) as *mut bool
         };
-        assert!(!tx_to_send.is_null());
 
-        let mutex = &*TX_COND_MUTEX as *const _ as *mut libc::pthread_mutex_t;
-        let cond = &*TX_COND_WAIT as *const _ as *mut libc::pthread_cond_t;
+
+        if tx_send_trigger.is_null()
+        {
+            println!("p2p uart write: trigger NULL. end write thread");
+            return;
+        }
+
+        let to_send = ::core::mem::size_of::<ffi::c_int>();
 
         loop
         {
-            unsafe {
-                libc::pthread_mutex_lock(mutex);
-                libc::pthread_cond_wait(cond, mutex);
-                libc::pthread_mutex_unlock(mutex);
+            let ctx = bus_interface_data_raw as *const ();
+
+            unsafe
+            {
+                println!("p2p uart write: waiting");
+                if *tx_send_trigger
+                {
+                    println!("p2p uart write: writing: {}", *tx_ptr);
+                    (bus_interface_write)(ctx, tx_ptr as _, to_send);
+                    *tx_send_trigger = false;
+                }
             }
 
-            let ctx = bus_interface_data_raw as *const ();
-            let to_send = unsafe{ *tx_to_send } as usize;
+            thread::sleep(std::time::Duration::from_millis(100));
 
-            unsafe {(bus_interface_write)(ctx, tx_ptr, to_send)};
         }
     });
 
@@ -119,30 +122,3 @@ pub unsafe extern "C" fn pe_main(p_self: *mut UartObj)
 
     unreachable!();
 }
-
-extern "C" fn _trigger_write()
-{
-    let mutex = &*TX_COND_MUTEX as *const _ as *mut libc::pthread_mutex_t;
-    let cond = &*TX_COND_WAIT as *const _ as *mut libc::pthread_cond_t;
-
-    unsafe {
-        libc::pthread_mutex_lock(mutex);
-        libc::pthread_cond_signal(cond);
-        libc::pthread_mutex_unlock(mutex);
-    }
-}
-
-
-static TX_COND_MUTEX: sync::LazyLock<libc::pthread_mutex_t> = sync::LazyLock::new(|| {
-    let mut mutex = unsafe { ::core::mem::zeroed() };
-    unsafe { libc::pthread_mutex_init(&mut mutex, ptr::null_mut()) };
-
-    mutex
-});
-
-static TX_COND_WAIT: sync::LazyLock<libc::pthread_cond_t> = sync::LazyLock::new(|| {
-    let mut cond = unsafe { ::core::mem::zeroed() };
-    unsafe { libc::pthread_cond_init(&mut cond, ptr::null_mut()) };
-
-    cond
-});

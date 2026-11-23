@@ -1,5 +1,5 @@
 [package]
-name = "p2p_uart_send"
+name = "p2p_uart"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,7 +8,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 
 [dependencies]
-vrot_pe_lib = {path = "/home/mr_monopoly/Alberto/programmazione/Rust/vrot/vrot_pe_lib"}
-common_libs = {path = "/home/mr_monopoly/Alberto/programmazione/Rust/vrot/workspaces/common_libs"}
+vrot_pe_lib = {path = "../vrot/vrot_pe_lib"}
+common_libs = {path = "../vrot/workspaces/common_libs"}
 libc = "0.2.191"
 
