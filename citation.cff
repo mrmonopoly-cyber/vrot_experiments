@@ -1,7 +1,9 @@
-@software{vrot_experiments,
-    author  = {{mrmonopoly-cyber}},
-    title   = {{vrot\_experiments}},
-    url     = {https://github.com/mrmonopoly-cyber/vrot_experiments},
-    urldate = {2026-11-27}
-}
-
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Alberto"
+- family-names: "Damo"
+title: "vrot experiments"
+version: 1.0.0
+date-released: 2026-11-27
+url: "https://github.com/mrmonopoly-cyber/vrot_experiments"
